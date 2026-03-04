@@ -16,12 +16,12 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar />
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main className="p-4">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4">{children}</main>
       </div>
     </div>
   );

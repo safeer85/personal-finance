@@ -55,9 +55,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       if (allowed.length === 0) return false;
 
+      const profileEmail =
+        profile && typeof profile === "object" && "email" in profile
+          ? String((profile as { email?: unknown }).email ?? "").toLowerCase()
+          : "";
+
       const email =
         user.email?.toLowerCase() ??
-        (profile as any)?.email?.toLowerCase() ??
+        profileEmail ??
         "";
 
       return allowed.includes(email);
