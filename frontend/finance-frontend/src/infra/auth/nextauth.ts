@@ -1,9 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-
-const allowedEmail = process.env.ALLOWED_EMAIL?.toLowerCase();
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -21,44 +18,58 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = String(credentials?.email ?? "").toLowerCase();
+        const email = String(credentials?.email ?? "").trim().toLowerCase();
         const password = String(credentials?.password ?? "");
 
-        // hard block if not the single allowed user
-        if (!allowedEmail || email !== allowedEmail) return null;
+        const envEmail = String(process.env.CREDENTIAL_EMAIL ?? "")
+          .trim()
+          .toLowerCase();
 
-        // must match configured credential email too
-        const credEmail = process.env.CREDENTIAL_EMAIL?.toLowerCase();
-        const hash = process.env.CREDENTIAL_PASSWORD_HASH;
+        const envPassword = String(process.env.CREDENTIAL_PASSWORD ?? "").trim();
 
-        if (!credEmail || !hash) return null;
-        if (email !== credEmail) return null;
+        // Fail closed if misconfigured
+        if (!envEmail || !envPassword) return null;
 
-        const ok = await bcrypt.compare(password, hash);
-        if (!ok) return null;
+        if (email !== envEmail) return null;
+        if (password !== envPassword) return null;
 
-        // minimal user object for JWT
-        return { id: "me", email, name: "Owner" };
+        return {
+          id: "me",
+          email: envEmail,
+          name: "Owner",
+        };
       },
     }),
   ],
 
   callbacks: {
-    // also restrict Google sign-in to the allowed email
-    async signIn({ user, account }) {
-      if (!allowedEmail) return false;
+    async signIn({ user, account, profile }) {
+      // Credentials already validated
+      if (account?.provider === "credentials") return true;
 
-      if (account?.provider === "google") {
-        return user.email?.toLowerCase() === allowedEmail;
-      }
+      // Restrict Google to allowlist
+      const allowed = (process.env.ALLOWED_EMAIL ?? "")
+        .split(",")
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
 
-      // credentials already validated in authorize()
-      return true;
+      if (allowed.length === 0) return false;
+
+      const email =
+        user.email?.toLowerCase() ??
+        (profile as any)?.email?.toLowerCase() ??
+        "";
+
+      return allowed.includes(email);
     },
   },
 
   pages: {
     signIn: "/login",
-    error: "/auth-error",
+    error: "/login",
   },
 });
+
+
+
+
