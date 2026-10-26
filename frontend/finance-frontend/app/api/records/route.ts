@@ -1,13 +1,17 @@
 import { db } from '@/lib/db';
 import { z } from 'zod';
+import { auth } from '@/auth';
 export const runtime = 'nodejs';
 const money = z.number().finite().min(0).max(20000000).refine(v => Math.abs(v * 100 - Math.round(v * 100)) < 0.00001, 'Use at most two decimal places');
 const schema = z.object({ kind: z.enum(['income','expense','saving','debt','payment']), name: z.string().trim().min(1).max(100), category: z.string().trim().min(1).max(100), amount: money.refine(v => v > 0), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0,10) === v, 'Invalid date'), minimum: money.default(0), target: money.default(0) });
 export async function GET() {
+  if (!(await auth())?.user) return Response.json({error:'Please sign in.'},{status:401});
   try { return Response.json(await db.record.findMany({ orderBy: [{date:'desc'},{createdAt:'desc'}] })); }
   catch { return Response.json({error:'Unable to load your records.'},{status:500}); }
 }
 export async function POST(request: Request) {
+  if (!(await auth())?.user) return Response.json({error:'Please sign in.'},{status:401});
+  if (request.headers.get('origin') !== new URL(request.url).origin) return Response.json({error:'Request origin is not allowed.'},{status:403});
   try {
     const parsed = schema.safeParse(await request.json());
     if (!parsed.success) return Response.json({error:parsed.error.issues[0].message},{status:400});
@@ -31,6 +35,8 @@ export async function POST(request: Request) {
   }
 }
 export async function DELETE(request: Request) {
+  if (!(await auth())?.user) return Response.json({error:'Please sign in.'},{status:401});
+  if (request.headers.get('origin') !== new URL(request.url).origin) return Response.json({error:'Request origin is not allowed.'},{status:403});
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return Response.json({error:'Missing record ID'},{status:400});
   try { await db.$transaction([db.record.deleteMany({where:{kind:'payment',category:id}}),db.record.delete({where:{id}})]); return Response.json({ok:true}); }

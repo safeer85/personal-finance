@@ -4,6 +4,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 model Record {
   id String @id @default(cuid())
@@ -15,4 +16,9 @@ model Record {
   minimum Int @default(0)
   target Int @default(0)
   createdAt DateTime @default(now())
+}
+model LoginAttempt {
+  id String @id
+  attempts Int @default(1)
+  expiresAt DateTime
 }

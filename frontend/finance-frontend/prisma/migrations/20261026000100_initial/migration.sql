@@ -1,0 +1,12 @@
+CREATE TABLE "Record" (
+  "id" TEXT NOT NULL,
+  "kind" TEXT NOT NULL,
+  "name" TEXT NOT NULL,
+  "category" TEXT NOT NULL,
+  "amount" INTEGER NOT NULL,
+  "date" TEXT NOT NULL,
+  "minimum" INTEGER NOT NULL DEFAULT 0,
+  "target" INTEGER NOT NULL DEFAULT 0,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "Record_pkey" PRIMARY KEY ("id")
+);
