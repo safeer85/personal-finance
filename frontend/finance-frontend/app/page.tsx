@@ -1,7 +1,8 @@
-import { auth } from "@/src/infra/auth/nextauth";
-import { redirect } from "next/navigation";
+import Dashboard from './dashboard';
 
-export default async function HomePage() {
-  const session = await auth();
-  redirect(session?.user?.email ? "/dashboard" : "/login");
+// Share one date between server rendering and the first browser render.
+export const dynamic = 'force-dynamic';
+
+export default function Home() {
+  return <Dashboard initialDate={new Date().toISOString().slice(0, 10)} />;
 }

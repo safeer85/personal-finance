@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pocket
+      POSTGRES_PASSWORD: pocket_local_dev
+      POSTGRES_DB: pocket
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - pocket_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pocket -d pocket"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  pocket_postgres:

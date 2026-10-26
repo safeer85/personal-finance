@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pocket personal finance tracker
 
-## Getting Started
+Local single-user tracker built with Next.js, React, a backend API, Prisma and PostgreSQL. Requires Node.js 20.9+.
 
-First, run the development server:
+## Run
 
-```bash
+```powershell
+cd frontend/finance-frontend
+npm install
+docker compose up -d db
+npm run db:setup
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://127.0.0.1:3000. Production: npm run build, then npm start -- --hostname 127.0.0.1.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Track income, expenses, savings contributions, debts and linked debt payments. Filter by month and see spending by category. The app starts empty.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Monthly debt capacity = recorded income minus expenses, savings and payments, with a floor of zero and capped at outstanding debt. Only entries through today count. Expected income, interest and unrecorded bills are excluded. Savings entries are independent contributions with optional individual goals.
 
-## Learn More
+Currency defaults to LKR. Changing currency changes formatting only, without conversion. Use one currency consistently.
 
-To learn more about Next.js, take a look at the following resources:
+## Storage and API
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Data persists in the pocket_postgres Docker volume. Back up PostgreSQL with pg_dump. Configure DATABASE_URL in .env (and .env.local if present); see .env.example. Docker Desktop must be running. The compose credentials are for local development only. To use hosted PostgreSQL, set its connection URL instead and skip Docker.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+GET /api/records lists records. POST /api/records creates a record with kind (income, expense, saving, debt, payment), name, category, amount and date (YYYY-MM-DD), plus optional minimum and target amounts. Payment category is the debt ID. API amounts use currency units; storage uses integer minor units. DELETE /api/records?id=... removes a record. Deleting a debt also deletes its linked payments.
 
-## Deploy on Vercel
+This app is for a trusted local computer and has no authentication. The development server binds to loopback. Add authentication and user isolation before network deployment.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Checks: npm run typecheck and npm run build.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
