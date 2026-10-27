@@ -1,5 +1,25 @@
 # Deploy Pocket to Vercel and Neon
 
+## Updating the existing website from GitHub
+
+The existing project is `pocket-personal-finance` in `safeer85s-projects`, with production URL https://pocket-personal-finance.vercel.app. Connect `safeer85/personal-finance` in the project's Settings > Git after granting the Vercel GitHub App access to that repository. Use production branch `main` and root directory `frontend/finance-frontend`.
+
+After connecting, pushes to `main` automatically deploy the existing website. The tracked Git configuration disables other branches so preview builds do not use the production finance database. Production environment variables are already stored in Vercel; do not add credentials to GitHub or commit local env files.
+
+From the repository root, update with:
+
+```powershell
+git status
+git add frontend/finance-frontend
+git diff --cached --stat
+git commit -m "Describe your changes"
+git push origin main
+```
+
+Review the staged files before committing. Env files, generated login credentials, and local Vercel metadata are ignored. Watch the deployment under the existing Vercel project's Deployments tab. Database migrations run during the production build; avoid destructive migrations against live records.
+
+The instructions below describe the initial setup and database configuration.
+
 This is a private, single-owner application. Every dashboard and records API request requires authentication. There is no public registration. The owner password is bcrypt-hashed; sessions expire after 12 hours. Login attempts are limited to 10 per 15-minute window across the owner account. Changing the username or password hash invalidates existing sessions.
 
 ## 1. Set your owner login
