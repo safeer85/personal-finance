@@ -1,6 +1,12 @@
 # Pocket personal finance tracker
 
-Private single-owner tracker built with Next.js, React, Auth.js, a backend API, Prisma and PostgreSQL. Requires Node.js 20.9+. Hosting instructions: [DEPLOYMENT.md](DEPLOYMENT.md).
+Private single-owner tracker built with Next.js, React, Tailwind CSS v4, shadcn/ui, Auth.js, a backend API, Prisma and PostgreSQL. Requires Node.js 20.9+. Hosting instructions: [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## Interface
+
+Tailwind utilities control the responsive layout. `app/globals.css` contains the shared green theme tokens and base styles. The shadcn/ui component source is in `components/ui`; add more components with `npx shadcn@latest add <name>`. The dashboard uses these buttons, cards, inputs, labels, badges, selects, tables, progress bars, record dialogs, and delete confirmation dialogs. Finance-specific form and table components are in `components/finance`.
+
+`npm run test:ui` runs Chrome interaction and mobile-layout checks against a local production server on port 3010 (`npm start -- --hostname 127.0.0.1 --port 3010`). It uses the generated local owner login, mocks financial API responses, and saves QA screenshots in ignored `.local`. Chrome must be installed; set `PLAYWRIGHT_CHANNEL=msedge` to use Edge instead. Financial records are not written by this UI test.
 
 ## Run
 
