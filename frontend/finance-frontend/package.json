@@ -9,6 +9,8 @@
     "lint": "eslint",
     "db:setup": "prisma generate && prisma db push",
     "typecheck": "tsc --noEmit",
+    "test:hosting": "node --test scripts/test-hosting-config.mjs",
+    "test:auth": "node scripts/test-auth.mjs",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "vercel-build": "node scripts/check-hosting-env.mjs && prisma generate && prisma migrate deploy && next build",
@@ -17,12 +19,11 @@
   "dependencies": {
     "@prisma/client": "6.19.2",
     "bcryptjs": "^3.0.3",
-    "next": "16.1.6",
-    "next-auth": "^5.0.0-beta.30",
-    "prisma": "6.19.2",
+    "next": "^16.4.3",
+    "next-auth": "^5.0.0-beta.32",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "zod": "^4.3.6"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -33,6 +34,11 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "prisma": "6.19.2"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0",
+    "effect": "^3.20.0"
   }
 }

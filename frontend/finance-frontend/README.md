@@ -1,14 +1,14 @@
 # Pocket personal finance tracker
 
-Local single-user tracker built with Next.js, React, a backend API, Prisma and PostgreSQL. Requires Node.js 20.9+.
+Private single-owner tracker built with Next.js, React, Auth.js, a backend API, Prisma and PostgreSQL. Requires Node.js 20.9+. Hosting instructions: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Run
 
 ```powershell
 cd frontend/finance-frontend
 npm install
-docker compose up -d db
 npm run db:setup
+npm run auth:setup
 npm run dev
 ```
 
@@ -22,11 +22,11 @@ Currency defaults to LKR. Changing currency changes formatting only, without con
 
 ## Storage and API
 
-Data persists in the pocket_postgres Docker volume. Back up PostgreSQL with pg_dump. Configure DATABASE_URL in .env (and .env.local if present); see .env.example. Docker Desktop must be running. The compose credentials are for local development only. To use hosted PostgreSQL, set its connection URL instead and skip Docker.
+Configure DATABASE_URL and DIRECT_URL for your installed PostgreSQL in .env (and .env.local if present); see .env.example. Docker is optional. For Docker, run docker compose up -d db and use port 55432 with the credentials in compose.yaml. Back up PostgreSQL with pg_dump. Neon hosting uses pooled runtime and direct migration URLs.
 
 GET /api/records lists records. POST /api/records creates a record with kind (income, expense, saving, debt, payment), name, category, amount and date (YYYY-MM-DD), plus optional minimum and target amounts. Payment category is the debt ID. API amounts use currency units; storage uses integer minor units. DELETE /api/records?id=... removes a record. Deleting a debt also deletes its linked payments.
 
-This app is for a trusted local computer and has no authentication. The development server binds to loopback. Add authentication and user isolation before network deployment.
+The dashboard and every records API method require owner login. Passwords are bcrypt-hashed, sessions last 12 hours, and login attempts are limited in PostgreSQL. Writes require the same origin. This is a single-owner app, not a multi-user service. A generated initial login, when used, is saved in ignored .local/owner-login.txt; change it with npm run auth:setup.
 
 Checks: npm run typecheck and npm run build.
 

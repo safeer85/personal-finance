@@ -30,13 +30,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   })],
   callbacks: {
     async jwt({token,user}) {
-      if (user) token.ownerVersion = createHash('sha256').update(`${process.env.OWNER_USERNAME}:${process.env.OWNER_PASSWORD_HASH}`).digest('hex');
-      return token;
-    },
-    async session({session,token}) {
       const current = createHash('sha256').update(`${process.env.OWNER_USERNAME}:${process.env.OWNER_PASSWORD_HASH}`).digest('hex');
-      if (token.sub !== 'owner' || token.ownerVersion !== current) return {...session,user:undefined};
-      return session;
+      if (user) token.ownerVersion = current;
+      else if (token.sub !== 'owner' || token.ownerVersion !== current) return null;
+      return token;
     },
   },
 });
