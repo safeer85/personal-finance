@@ -2,9 +2,9 @@
 
 ## Updating the existing website from GitHub
 
-The existing project is `pocket-personal-finance` in `safeer85s-projects`, with production URL https://pocket-personal-finance.vercel.app. Connect `safeer85/personal-finance` in the project's Settings > Git after granting the Vercel GitHub App access to that repository. Use production branch `main` and root directory `frontend/finance-frontend`.
+The existing project is `pocket-personal-finance` in `safeer85s-projects`, with production URL https://pocket-personal-finance.vercel.app. It is connected to `safeer85/personal-finance`, with production branch `main` and root directory `frontend/finance-frontend`.
 
-After connecting, pushes to `main` automatically deploy the existing website. The tracked Git configuration disables other branches so preview builds do not use the production finance database. Production environment variables are already stored in Vercel; do not add credentials to GitHub or commit local env files.
+Pushes to `main` automatically deploy the existing website. The tracked Git configuration disables other branches so preview builds do not use the production finance database. Production environment variables are already stored in Vercel; do not add credentials to GitHub or commit local env files. A separate manual Vercel deployment is no longer needed for routine updates.
 
 From the repository root, update with:
 
