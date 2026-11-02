@@ -15,6 +15,11 @@ model Record {
   date String
   minimum Int @default(0)
   target Int @default(0)
+  debtType String @default("unspecified")
+  cardIssuer String @default("")
+  creditLimit Int @default(0)
+  dueDate String @default("")
+  annualRateBps Int?
   createdAt DateTime @default(now())
 }
 model LoginAttempt {

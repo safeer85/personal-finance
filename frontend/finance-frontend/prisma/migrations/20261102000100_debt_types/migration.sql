@@ -1,0 +1,6 @@
+ALTER TABLE "Record"
+  ADD COLUMN "debtType" TEXT NOT NULL DEFAULT 'unspecified',
+  ADD COLUMN "cardIssuer" TEXT NOT NULL DEFAULT '',
+  ADD COLUMN "creditLimit" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "dueDate" TEXT NOT NULL DEFAULT '',
+  ADD COLUMN "annualRateBps" INTEGER;

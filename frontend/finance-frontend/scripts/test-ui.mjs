@@ -33,7 +33,24 @@ page.on("console", (message) => {
   )
     errors.push(message.text());
 });
-let records = [];
+const fixtureDate = new Date().toISOString().slice(0, 10);
+let records = [
+  {
+    id: "legacy-fixture",
+    kind: "debt",
+    name: "Existing unclassified debt",
+    category: "Legacy",
+    amount: 100000,
+    date: fixtureDate,
+    minimum: 10000,
+    target: 0,
+    debtType: "unspecified",
+    cardIssuer: "",
+    creditLimit: 0,
+    dueDate: "",
+    annualRateBps: null,
+  },
+];
 const submissions = [];
 let sequence = 0;
 
@@ -49,16 +66,45 @@ await page.route("**/api/records*", async (route) => {
       amount: Math.round(data.amount * 100),
       minimum: Math.round(data.minimum * 100),
       target: Math.round(data.target * 100),
+      creditLimit: Math.round((data.creditLimit || 0) * 100),
+      annualRateBps:
+        data.debtType === "personal"
+          ? 0
+          : data.annualRate == null
+            ? null
+            : Math.round(data.annualRate * 100),
     };
     records.unshift(record);
     return route.fulfill({ status: 201, json: record });
+  }
+  if (request.method() === "PATCH") {
+    const data = request.postDataJSON();
+    const existing = records.find((record) => record.id === data.id);
+    Object.assign(existing, {
+      name: data.name,
+      category: data.category,
+      minimum: Math.round(data.minimum * 100),
+      debtType: data.debtType,
+      cardIssuer: data.debtType === "credit_card" ? data.cardIssuer : "",
+      creditLimit:
+        data.debtType === "credit_card"
+          ? Math.round(data.creditLimit * 100)
+          : 0,
+      dueDate: data.dueDate,
+      annualRateBps:
+        data.debtType === "personal" ? 0 : Math.round(data.annualRate * 100),
+    });
+    return route.fulfill({ json: existing });
   }
   if (request.method() === "DELETE") {
     const id = new URL(request.url()).searchParams.get("id");
     records = records.filter(
       (record) =>
         record.id !== id &&
-        !(record.kind === "payment" && record.category === id),
+        !(
+          ["payment", "card_charge"].includes(record.kind) &&
+          record.category === id
+        ),
     );
     return route.fulfill({ json: { ok: true } });
   }
@@ -115,18 +161,18 @@ try {
         exact: true,
       })
       .click();
-    await dialog.getByLabel("Description", { exact: true }).fill(name);
-    await dialog.getByLabel(/^Amount/).fill(String(amount));
+    await dialog.getByLabel(/^(Description|Person \/ description)$/).fill(name);
+    await dialog.getByLabel(/^(Amount|Opening balance)/).fill(String(amount));
     if (kind === "payment") {
       await dialog.getByLabel("Debt", { exact: true }).click();
       await page.getByRole("option", { name: /^UI test loan/ }).click();
-    } else
+    } else if (kind !== "debt")
       await dialog
         .getByLabel("Category", { exact: true })
         .fill(kind === "expense" ? "Groceries" : "UI fixtures");
     if (extra.minimum)
       await dialog
-        .getByLabel("Minimum monthly payment")
+        .getByLabel(/^(Statement minimum payment|Planned monthly repayment)$/)
         .fill(String(extra.minimum));
     if (extra.target)
       await dialog
@@ -151,6 +197,102 @@ try {
     records.find((record) => record.kind === "debt").id,
     "The payment did not submit its selected debt ID.",
   );
+  await nav.getByRole("button", { name: /^Debts/ }).click();
+  await expect(
+    page.getByText("Existing debts to classify", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Edit Existing unclassified debt",
+      exact: true,
+    })
+    .click();
+  const editDialog = page.getByRole("dialog", { name: "Edit debt details" });
+  await editDialog.getByLabel("Debt type", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "Personal debt — no interest", exact: true })
+    .click();
+  await editDialog
+    .getByRole("button", { name: "Save debt details", exact: true })
+    .click();
+  await expect(editDialog).toBeHidden();
+  assert.equal(
+    records.find((record) => record.id === "legacy-fixture").amount,
+    100000,
+  );
+  assert.equal(
+    records.find((record) => record.id === "legacy-fixture").debtType,
+    "personal",
+  );
+  for (const issuer of ["HNB", "BOC"]) {
+    await page
+      .getByRole("button", { name: `Add ${issuer} Gold`, exact: true })
+      .click();
+    await dialog
+      .getByLabel(/^Opening balance/)
+      .fill(issuer === "HNB" ? "2000" : "0");
+    await dialog
+      .getByLabel("Credit limit (optional)", { exact: true })
+      .fill("5000");
+    await dialog
+      .getByLabel("Annual interest rate (% p.a.)", { exact: true })
+      .fill("28");
+    if (issuer === "HNB")
+      await dialog
+        .getByLabel("Statement minimum payment", { exact: true })
+        .fill("100");
+    await dialog
+      .getByRole("button", { name: "Save record", exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.getByRole("heading", { name: `${issuer} Gold`, exact: true }),
+    ).toBeVisible();
+  }
+  const boc = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", { name: "BOC Gold", exact: true }),
+    });
+  await boc
+    .getByRole("button", { name: "Add charge / interest", exact: true })
+    .click();
+  await dialog
+    .getByLabel("Description", { exact: true })
+    .fill("UI BOC purchase");
+  await dialog.getByLabel(/^Amount/).fill("500");
+  await dialog
+    .getByRole("button", { name: "Save record", exact: true })
+    .click();
+  await expect(dialog).toBeHidden();
+  const bocRecord = records.find((record) => record.cardIssuer === "boc_gold");
+  assert(
+    records.some(
+      (record) =>
+        record.kind === "card_charge" && record.category === bocRecord.id,
+    ),
+  );
+  await boc
+    .getByRole("button", { name: "Record payment", exact: true })
+    .click();
+  await dialog
+    .getByLabel("Description", { exact: true })
+    .fill("UI BOC payment");
+  await dialog.getByLabel(/^Amount/).fill("100");
+  await dialog
+    .getByRole("button", { name: "Save record", exact: true })
+    .click();
+  await expect(dialog).toBeHidden();
+  await expect(boc.getByText(/400\.00/)).toBeVisible();
+  await mkdir(new URL("../.local/", import.meta.url), { recursive: true });
+  await page.screenshot({
+    animations: "disabled",
+    path: fileURLToPath(
+      new URL("../.local/ui-debts-desktop.png", import.meta.url),
+    ),
+    fullPage: true,
+  });
+  await nav.getByRole("button", { name: "Overview", exact: true }).click();
   await expect(
     page.getByRole("img", { name: /Spending by category/ }),
   ).toBeVisible();
@@ -214,6 +356,28 @@ try {
     path: fileURLToPath(new URL("../.local/ui-mobile.png", import.meta.url)),
     fullPage: true,
   });
+  await page.keyboard.press("Escape");
+  await nav.getByRole("button", { name: /^Debts/ }).click();
+  assert(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+    "Debt accounts overflow on mobile.",
+  );
+  await page.screenshot({
+    animations: "disabled",
+    path: fileURLToPath(
+      new URL("../.local/ui-debts-mobile.png", import.meta.url),
+    ),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Add BOC Gold", exact: true }).click();
+  await dialog
+    .getByLabel("Annual interest rate (% p.a.)", { exact: true })
+    .scrollIntoViewIfNeeded();
+  await expect(
+    dialog.getByLabel("Annual interest rate (% p.a.)", { exact: true }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(

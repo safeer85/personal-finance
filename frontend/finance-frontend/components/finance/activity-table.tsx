@@ -78,14 +78,14 @@ export function ActivityTable({
                   <div>
                     <p className="font-medium">{record.name}</p>
                     <p className="text-xs capitalize text-muted-foreground">
-                      {record.kind}
+                      {record.kind.replace("_", " ")}
                     </p>
                   </div>
                 </div>
               </TableCell>
               <TableCell>
                 <Badge variant="secondary" className="font-normal">
-                  {record.kind === "payment"
+                  {record.kind === "payment" || record.kind === "card_charge"
                     ? allRecords.find((debt) => debt.id === record.category)
                         ?.name || "Debt payment"
                     : record.category}

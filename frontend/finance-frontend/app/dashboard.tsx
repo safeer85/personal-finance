@@ -47,6 +47,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { RecordDialog } from "@/components/finance/record-dialog";
+import { DebtSection } from "@/components/finance/debt-section";
+import { remainingMonthlyPayment } from "@/lib/debts";
 import { ActivityTable } from "@/components/finance/activity-table";
 import type { Entry } from "@/components/finance/types";
 import { cn } from "@/lib/utils";
@@ -85,6 +87,12 @@ export default function Dashboard({
     [deleteTarget, setDeleteTarget] = useState<Entry | null>(null);
   const [deleting, setDeleting] = useState(false),
     [deleteError, setDeleteError] = useState("");
+  const [editingDebt, setEditingDebt] = useState<Entry | null>(null);
+  const [debtPreset, setDebtPreset] = useState<{
+    type: "personal" | "credit_card";
+    issuer: string;
+  }>({ type: "personal", issuer: "hnb_gold" });
+  const [paymentDebtId, setPaymentDebtId] = useState<string | undefined>();
   const money = (value: number) =>
     new Intl.NumberFormat("en", {
       style: "currency",
@@ -138,7 +146,13 @@ export default function Dashboard({
       ...debt,
       balance: Math.max(
         0,
-        debt.amount -
+        debt.amount +
+          actual
+            .filter(
+              (record) =>
+                record.kind === "card_charge" && record.category === debt.id,
+            )
+            .reduce((total, record) => total + record.amount, 0) -
           actual
             .filter(
               (payment) =>
@@ -151,18 +165,7 @@ export default function Dashboard({
     available = Math.max(0, income - expenses - savings - payments),
     capacity = Math.min(debtTotal, available);
   const minimum = debts.reduce(
-    (total, debt) =>
-      total +
-      Math.max(
-        0,
-        Math.min(debt.minimum, debt.balance) -
-          current
-            .filter(
-              (payment) =>
-                payment.kind === "payment" && payment.category === debt.id,
-            )
-            .reduce((paid, payment) => paid + payment.amount, 0),
-      ),
+    (total, debt) => total + remainingMonthlyPayment(debt, current),
     0,
   );
   const selected = (
@@ -192,6 +195,9 @@ export default function Dashboard({
   ).sort((a, b) => b[1] - a[1]);
 
   function open(type = "expense") {
+    setEditingDebt(null);
+    setDebtPreset({ type: "personal", issuer: "hnb_gold" });
+    setPaymentDebtId(undefined);
     setKind(type);
     setError("");
     setModal(true);
@@ -203,16 +209,25 @@ export default function Dashboard({
     setError("");
     try {
       const response = await fetch("/api/records", {
-        method: "POST",
+        method: editingDebt ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind,
+          id: editingDebt?.id,
           name: form.get("name"),
           category: form.get("category"),
           date: form.get("date"),
           amount: Number(form.get("amount")),
           minimum: Number(form.get("minimum") || 0),
           target: Number(form.get("target") || 0),
+          debtType: form.get("debtType") || "unspecified",
+          cardIssuer: form.get("cardIssuer") || "",
+          creditLimit: Number(form.get("creditLimit") || 0),
+          dueDate: form.get("dueDate") || "",
+          annualRate:
+            form.get("annualRate") !== null && form.get("annualRate") !== ""
+              ? Number(form.get("annualRate"))
+              : null,
         }),
       });
       const result = await response.json();
@@ -615,14 +630,35 @@ export default function Dashboard({
               </Card>
             </section>
           )}
-          {(view === "Savings" || view === "Debts") && (
+          {view === "Debts" && (
+            <DebtSection
+              debts={debts}
+              payments={current}
+              date={date}
+              money={money}
+              onAdd={(type, issuer) => {
+                open("debt");
+                setDebtPreset({ type, issuer: issuer || "hnb_gold" });
+              }}
+              onEdit={(debt) => {
+                open("debt");
+                setEditingDebt(debt);
+              }}
+              onPay={(debt) => {
+                open("payment");
+                setPaymentDebtId(debt.id);
+              }}
+              onCharge={(debt) => {
+                open("card_charge");
+                setPaymentDebtId(debt.id);
+              }}
+              onDelete={requestDelete}
+            />
+          )}
+          {view === "Savings" && (
             <Card className="shadow-none">
               <CardHeader className="flex flex-row items-center justify-between gap-4">
-                <CardTitle>
-                  {view === "Savings"
-                    ? "Your savings goals"
-                    : "Your debt balances"}
-                </CardTitle>
+                <CardTitle>Your savings goals</CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -634,54 +670,51 @@ export default function Dashboard({
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                  {(view === "Debts"
-                    ? debts
-                    : records.filter((record) => record.kind === "saving")
-                  ).map((record) => {
-                    const balance =
-                      "balance" in record
-                        ? Number(record.balance)
-                        : record.amount;
-                    const progress =
-                      record.kind === "debt"
-                        ? ((record.amount - balance) / record.amount) * 100
-                        : (record.amount / (record.target || record.amount)) *
-                          100;
-                    return (
-                      <div key={record.id} className="rounded-xl border p-5">
-                        <Badge variant="secondary" className="font-normal">
-                          {record.category}
-                        </Badge>
-                        <h3 className="mt-4 font-medium">{record.name}</h3>
-                        <p className="mt-3 text-2xl tracking-tight tabular-nums">
-                          {money(balance)}
-                        </p>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          {record.kind === "debt"
-                            ? `${money(record.minimum)} minimum / month`
-                            : `${money(record.target)} goal`}
-                        </p>
-                        <Progress
-                          aria-label={`${record.name} progress`}
-                          value={Math.min(100, progress)}
-                          className="mt-5 h-2"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-3 text-destructive"
-                          onClick={() => requestDelete(record)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    );
-                  })}
+                  {records
+                    .filter((record) => record.kind === "saving")
+                    .map((record) => {
+                      const balance =
+                        "balance" in record
+                          ? Number(record.balance)
+                          : record.amount;
+                      const progress =
+                        record.kind === "debt"
+                          ? ((record.amount - balance) / record.amount) * 100
+                          : (record.amount / (record.target || record.amount)) *
+                            100;
+                      return (
+                        <div key={record.id} className="rounded-xl border p-5">
+                          <Badge variant="secondary" className="font-normal">
+                            {record.category}
+                          </Badge>
+                          <h3 className="mt-4 font-medium">{record.name}</h3>
+                          <p className="mt-3 text-2xl tracking-tight tabular-nums">
+                            {money(balance)}
+                          </p>
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {record.kind === "debt"
+                              ? `${money(record.minimum)} minimum / month`
+                              : `${money(record.target)} goal`}
+                          </p>
+                          <Progress
+                            aria-label={`${record.name} progress`}
+                            value={Math.min(100, progress)}
+                            className="mt-5 h-2"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="mt-3 text-destructive"
+                            onClick={() => requestDelete(record)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      );
+                    })}
                 </div>
-                {(view === "Debts"
-                  ? debts.length
-                  : records.filter((record) => record.kind === "saving")
-                      .length) === 0 && (
+                {records.filter((record) => record.kind === "saving").length ===
+                  0 && (
                   <p className="py-6 text-center text-sm text-muted-foreground">
                     Your {view.toLowerCase()} will appear here when you add a
                     record.
@@ -755,6 +788,11 @@ export default function Dashboard({
         </div>
       </main>
       <RecordDialog
+        key={`${modal}:${editingDebt?.id || ""}:${debtPreset.type}:${debtPreset.issuer}`}
+        editingDebt={editingDebt}
+        initialDebtType={debtPreset.type}
+        initialCardIssuer={debtPreset.issuer}
+        paymentDebtId={paymentDebtId}
         open={modal}
         onOpenChange={(open) => {
           if (!busy) setModal(open);
@@ -781,7 +819,7 @@ export default function Dashboard({
             <AlertDialogDescription>
               “{deleteTarget?.name}” will be permanently deleted.
               {deleteTarget?.kind === "debt" &&
-                " Its linked payments will also be deleted."}
+                " Its linked payments and card charges will also be deleted."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deleteError && (

@@ -7,6 +7,11 @@ export type Entry = {
   date: string;
   minimum: number;
   target: number;
+  debtType?: "unspecified" | "personal" | "credit_card";
+  cardIssuer?: string;
+  creditLimit?: number;
+  dueDate?: string;
+  annualRateBps?: number | null;
 };
 
 export type Debt = Entry & { balance: number };
